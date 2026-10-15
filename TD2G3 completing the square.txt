@@ -1,0 +1,1145 @@
+<style>
+    body {
+        font-family: 'Outfit', sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .font-game {
+        font-family: 'Fredoka One', cursive;
+    }
+    /* Custom scrollbar for HUD panels */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #3b82f6;
+        border-radius: 4px;
+    }
+    
+    /* Shimmer effect for gold lab header */
+    .shimmer {
+        background: linear-gradient(90deg, #f59e0b 0%, #fef08a 50%, #f59e0b 100%);
+        background-size: 200% auto;
+        color: transparent;
+        -webkit-background-clip: text;
+        animation: shine 3s linear infinite;
+    }
+    @keyframes shine {
+        to { background-position: 200% center; }
+    }
+
+    /* Float animation for HUD elements */
+    @keyframes float-up {
+        0% { opacity: 1; transform: translateY(0) scale(1); }
+        100% { opacity: 0; transform: translateY(-30px) scale(1.2); }
+    }
+    .float-text {
+        animation: float-up 0.8s ease-out forwards;
+    }
+
+    /* Pulse highlight for correct math answer */
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .pulse-correct {
+        animation: pulse-green 0.5s ease-out;
+    }
+</style>
+
+
+<!-- Top Navigation Header -->
+<header class="bg-slate-900/80 border-b border-slate-800 backdrop-blur px-4 py-2 flex justify-between items-center z-20">
+    <div class="flex items-center gap-3">
+        <div class="bg-gradient-to-tr from-amber-500 to-yellow-300 p-2 rounded-xl text-slate-950 font-bold shadow-lg shadow-amber-500/20">
+            <i class="fa-solid font-game text-xl">∑</i>
+        </div>
+        <div>
+            <h1 class="font-game text-xl tracking-wide text-amber-400">MATH CITADEL</h1>
+            <p class="text-xs text-slate-400 font-semibold">TOWER DEFENSE</p>
+        </div>
+    </div>
+
+    <!-- Top Game Stats Bar -->
+    <div id="stats-bar" class="flex items-center gap-4 md:gap-8 bg-slate-950/70 border border-slate-800 px-4 py-1.5 rounded-full">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-heart text-red-500 text-lg animate-pulse"></i>
+            <span class="text-sm text-slate-400 font-bold hidden sm:inline">HP:</span>
+            <span id="stat-hp" class="font-game text-lg text-red-400">100</span>
+        </div>
+        <div class="h-4 w-[1px] bg-slate-800"></div>
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-coins text-amber-400 text-lg"></i>
+            <span class="text-sm text-slate-400 font-bold hidden sm:inline">GOLD:</span>
+            <span id="stat-gold" class="font-game text-lg text-amber-300">150</span>
+        </div>
+        <div class="h-4 w-[1px] bg-slate-800"></div>
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-flag text-blue-400 text-lg"></i>
+            <span class="text-sm text-slate-400 font-bold hidden sm:inline">WAVE:</span>
+            <span id="stat-wave" class="font-game text-lg text-blue-300">1</span>
+        </div>
+        <div class="h-4 w-[1px] bg-slate-800"></div>
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-trophy text-purple-400 text-lg"></i>
+            <span id="stat-score" class="font-game text-lg text-purple-300">0</span>
+        </div>
+    </div>
+
+    <!-- Controls / Audio Toggle -->
+    <div class="flex items-center gap-2">
+        <button id="btn-audio" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition border border-slate-700">
+            <i class="fa-solid fa-volume-high text-lg"></i>
+        </button>
+        <button id="btn-pause" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition border border-slate-700">
+            <i class="fa-solid fa-pause text-lg"></i>
+        </button>
+    </div>
+</header>
+
+<!-- Main Game Container -->
+<main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-3 max-w-[1600px] w-full mx-auto">
+
+    <!-- Left/Center Canvas Viewport (8 Cols) -->
+    <div class="lg:col-span-8 flex flex-col gap-3">
+        <div class="relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex-1 flex items-center justify-center min-h-[420px]">
+            <canvas id="gameCanvas" class="block w-full h-full cursor-crosshair"></canvas>
+
+            <!-- Floating Overlay Notification Container -->
+            <div id="floating-text-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+            <!-- Tower Selection Floating Toolbar -->
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-slate-700/80 backdrop-blur p-2 rounded-2xl shadow-2xl flex items-center gap-2">
+                <button data-tower-type="archer" class="tower-btn relative p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border-2 border-transparent text-left transition flex items-center gap-3 w-32 md:w-36">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-lg">
+                        <i class="fa-solid fa-location-crosshairs"></i>
+                    </div>
+                    <div>
+                        <div class="font-game text-xs text-slate-200">Archer</div>
+                        <div class="text-[11px] font-bold text-amber-400"><i class="fa-solid fa-coins mr-1"></i>100</div>
+                    </div>
+                </button>
+
+                <button data-tower-type="cannon" class="tower-btn relative p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border-2 border-transparent text-left transition flex items-center gap-3 w-32 md:w-36">
+                    <div class="w-10 h-10 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 font-bold text-lg">
+                        <i class="fa-solid fa-bomb"></i>
+                    </div>
+                    <div>
+                        <div class="font-game text-xs text-slate-200">Cannon</div>
+                        <div class="text-[11px] font-bold text-amber-400"><i class="fa-solid fa-coins mr-1"></i>175</div>
+                    </div>
+                </button>
+
+                <button data-tower-type="ice" class="tower-btn relative p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border-2 border-transparent text-left transition flex items-center gap-3 w-32 md:w-36">
+                    <div class="w-10 h-10 rounded-lg bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400 font-bold text-lg">
+                        <i class="fa-solid fa-snowflake"></i>
+                    </div>
+                    <div>
+                        <div class="font-game text-xs text-slate-200">Frost</div>
+                        <div class="text-[11px] font-bold text-amber-400"><i class="fa-solid fa-coins mr-1"></i>150</div>
+                    </div>
+                </button>
+
+                <button data-tower-type="laser" class="tower-btn relative p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border-2 border-transparent text-left transition flex items-center gap-3 w-32 md:w-36">
+                    <div class="w-10 h-10 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 font-bold text-lg">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div>
+                        <div class="font-game text-xs text-slate-200">Laser</div>
+                        <div class="text-[11px] font-bold text-amber-400"><i class="fa-solid fa-coins mr-1"></i>250</div>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Next Wave Button Overlay Top Right -->
+            <button id="btn-next-wave" class="absolute top-4 right-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-game px-4 py-2.5 rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition transform active:scale-95">
+                <i class="fa-solid fa-play"></i>
+                <span>START WAVE</span>
+            </button>
+        </div>
+
+        <!-- Tower Selected Inspector Card / Stats -->
+        <div id="tower-inspector" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 hidden">
+            <div class="flex items-center gap-3">
+                <div id="inspector-icon" class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl text-amber-400">
+                    <i class="fa-solid fa-turret"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 id="inspector-name" class="font-game text-lg text-slate-100">Archer Tower</h3>
+                        <span id="inspector-level" class="bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded text-xs font-bold">Lvl 1</span>
+                    </div>
+                    <p id="inspector-stats" class="text-xs text-slate-400">Dmg: 15 | Range: 120 | Speed: 1.2s</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-upgrade-tower" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-2 border border-emerald-400/30">
+                    <i class="fa-solid fa-arrow-up font-bold"></i>
+                    <span>Upgrade (<span id="upgrade-cost">75</span> Gold)</span>
+                </button>
+                <button id="btn-sell-tower" class="bg-rose-900/50 hover:bg-rose-800/60 text-rose-300 font-semibold text-xs px-3 py-2.5 rounded-xl transition flex items-center gap-1.5 border border-rose-700/50">
+                    <i class="fa-solid fa-trash"></i>
+                    <span>Sell (+<span id="sell-gold">50</span>)</span>
+                </button>
+                <button id="btn-close-inspector" class="text-slate-500 hover:text-slate-300 px-2 py-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Side Panel: QUADRATIC GOLD LAB (4 Cols) -->
+    <div class="lg:col-span-4 flex flex-col gap-3">
+        <div id="math-lab-panel" class="bg-slate-900 border-2 border-amber-500/40 rounded-2xl p-5 shadow-2xl flex flex-col justify-between flex-1 relative overflow-hidden">
+            <!-- Background Ambient Glow -->
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div>
+                <!-- Math Header & Question Bank Badge -->
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-square-root-variable text-amber-400 text-xl"></i>
+                        <h2 class="font-game text-base shimmer">QUADRATIC GOLD MINE</h2>
+                    </div>
+                    <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full">High Reward (+150G)</span>
+                </div>
+
+                <!-- Streak Multiplier Display -->
+                <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 mb-4 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-fire text-orange-500 text-xl animate-bounce"></i>
+                        <div>
+                            <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Combo Streak</div>
+                            <div id="streak-counter" class="font-game text-amber-400 text-base">0 Hits</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Reward Multiplier</div>
+                        <div id="streak-multiplier" class="font-game text-emerald-400 text-lg">1.0x</div>
+                    </div>
+                </div>
+
+                <!-- Question Card Container -->
+                <div id="question-card" class="bg-slate-950 border border-amber-500/30 rounded-2xl p-5 text-center mb-4 relative shadow-inner">
+                    <div class="text-[11px] text-amber-400 font-semibold mb-1 uppercase tracking-widest">Complete the Square / Vertex Form</div>
+                    <div id="math-instruction" class="text-sm font-semibold text-slate-300 mb-2">Rearrange $x^2 + 10x + 10$ in the form $(x-h)^2+k$</div>
+                    <div id="math-question" class="font-game text-xl text-slate-100 tracking-wider my-1 hidden">
+                        x^2 + 10x + 10
+                    </div>
+                    
+                    <!-- Math Input Field -->
+                    <div class="relative max-w-[260px] mx-auto mt-4">
+                        <input type="text" id="math-answer-input" placeholder="e.g. (x+5)^2-15" autocomplete="off" class="w-full bg-slate-900 border-2 border-slate-700 focus:border-amber-400 text-slate-100 font-game text-lg text-center rounded-xl py-2 px-3 focus:outline-none transition shadow-lg">
+                        <button id="btn-submit-answer" class="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition flex items-center justify-center">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Keyboard Shortcut Guide -->
+                <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-xs text-slate-400 space-y-1">
+                    <div class="font-bold text-slate-300"><i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i> Quick Tips:</div>
+                    <div>• Use standard keyboard symbols: <code class="text-amber-300">(x+5)^2-15</code></div>
+                    <div>• Spaces are automatically ignored upon checking.</div>
+                </div>
+            </div>
+
+            <!-- Footer Hint -->
+            <div class="text-center text-[11px] text-slate-500 font-semibold mt-3">
+                <i class="fa-solid fa-keyboard mr-1"></i> Press <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700">Enter</kbd> to submit fast!
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Start / Game Over Modal Overlays -->
+<div id="modal-overlay" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-slate-800 max-w-md w-full rounded-3xl p-6 text-center shadow-2xl relative overflow-hidden">
+        <!-- Modal Title Header -->
+        <div class="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 mx-auto flex items-center justify-center text-3xl mb-4 font-game">
+            <i id="modal-icon" class="fa-solid fa-shield-halved"></i>
+        </div>
+        
+        <h2 id="modal-title" class="font-game text-2xl text-slate-100 mb-2">MATH CITADEL DEFENSE</h2>
+        <p id="modal-desc" class="text-slate-400 text-sm mb-6">
+            Build towers to protect the realm! Solve advanced <strong class="text-amber-400">Completing the Square</strong> quadratic equations in the Gold Mine to earn rich bounties and upgrade your defenses.
+        </p>
+
+        <!-- Final Stats Summary Container (Hidden on start) -->
+        <div id="modal-stats-summary" class="bg-slate-950 border border-slate-800 rounded-2xl p-4 mb-6 text-left hidden space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-slate-400">Waves Survived:</span><span id="summary-waves" class="font-bold text-amber-400">0</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Total Score:</span><span id="summary-score" class="font-bold text-purple-400">0</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Quadratics Solved:</span><span id="summary-math" class="font-bold text-emerald-400">0</span></div>
+        </div>
+
+        <!-- Start / Restart Action Button -->
+        <button id="btn-modal-action" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-game text-lg py-3 rounded-xl shadow-lg shadow-amber-500/20 transition transform active:scale-95">
+            PLAY GAME
+        </button>
+    </div>
+</div>
+
+<!-- JavaScript Core Engine -->
+<script>
+    /**
+     * Web Audio Sound Engine (Synth Sound Effects)
+     */
+    class SoundEngine {
+        constructor() {
+            this.ctx = null;
+            this.muted = false;
+        }
+
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        playCorrect() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(523.25, now);
+            osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        }
+
+        playWrong() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.linearRampToValueAtTime(110, now + 0.2);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.25);
+        }
+
+        playShoot() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(80, now + 0.1);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        }
+
+        playHit() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.08);
+        }
+
+        playBuild() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.12);
+        }
+    }
+
+    const sound = new SoundEngine();
+
+    /**
+     * Tower Types Blueprint
+     */
+    const TOWER_TYPES = {
+        archer: {
+            name: 'Archer Tower',
+            cost: 100,
+            range: 130,
+            damage: 18,
+            fireRate: 0.8,
+            color: '#10b981',
+            icon: 'fa-location-crosshairs'
+        },
+        cannon: {
+            name: 'Cannon Tower',
+            cost: 175,
+            range: 110,
+            damage: 40,
+            fireRate: 1.8,
+            splashRadius: 50,
+            color: '#f43f5e',
+            icon: 'fa-bomb'
+        },
+        ice: {
+            name: 'Frost Tower',
+            cost: 150,
+            range: 115,
+            damage: 8,
+            fireRate: 1.0,
+            slowFactor: 0.5,
+            slowDuration: 2.5,
+            color: '#38bdf8',
+            icon: 'fa-snowflake'
+        },
+        laser: {
+            name: 'Laser Tower',
+            cost: 250,
+            range: 140,
+            damage: 3.5,
+            isContinuous: true,
+            color: '#a855f7',
+            icon: 'fa-bolt'
+        }
+    };
+
+    /**
+     * Question Bank from Question_Bank (2)
+     */
+    const QUADRATIC_QUESTIONS = [
+        { q: "x^2 + 10x + 10", ans: "(x+5)^2-15" },
+        { q: "x^2 - 8", ans: "x^2-8" },
+        { q: "x^2 + 2x - 10", ans: "(x+1)^2-11" },
+        { q: "x^2 + 10x + 31", ans: "(x+5)^2+6" },
+        { q: "x^2 + 12x + 39", ans: "(x+6)^2+3" },
+        { q: "x^2 - 12x + 40", ans: "(x-6)^2+4" },
+        { q: "x^2 - 6x - 14", ans: "(x-3)^2-23" },
+        { q: "x^2 - 4x + 12", ans: "(x-2)^2+8" },
+        { q: "x^2 - 2x - 19", ans: "(x-1)^2-20" },
+        { q: "x^2 - 14", ans: "x^2-14" },
+        { q: "x^2 + 16x + 69", ans: "(x+8)^2+5" },
+        { q: "x^2 - 16x + 56", ans: "(x-8)^2-8" },
+        { q: "x^2 - 6x - 6", ans: "(x-3)^2-15" },
+        { q: "x^2 - 12x + 38", ans: "(x-6)^2+2" },
+        { q: "x^2 + 4x - 14", ans: "(x+2)^2-18" },
+        { q: "x^2 + 10x + 15", ans: "(x+5)^2-10" },
+        { q: "x^2 - 8x + 3", ans: "(x-4)^2-13" },
+        { q: "x^2 + 6x + 29", ans: "(x+3)^2+20" },
+        { q: "x^2 - 10x + 19", ans: "(x-5)^2-6" },
+        { q: "x^2 + 8x - 2", ans: "(x+4)^2-18" },
+        { q: "x^2 + 4x - 2", ans: "(x+2)^2-6" },
+        { q: "x^2 + 10x + 22", ans: "(x+5)^2-3" },
+        { q: "x^2 - 12x + 63", ans: "(x-6)^2+27" },
+        { q: "x^2 + 2", ans: "x^2+2" },
+        { q: "x^2 + 6x - 6", ans: "(x+3)^2-15" },
+        { q: "x^2 - 6x + 29", ans: "(x-3)^2+20" },
+        { q: "x^2 + 10x + 20", ans: "(x+5)^2-5" },
+        { q: "x^2 - 2x + 5", ans: "(x-1)^2+4" },
+        { q: "x^2 + 12x + 56", ans: "(x+6)^2+20" },
+        { q: "x^2 - 14x + 49", ans: "(x-7)^2" }
+    ];
+
+    /**
+     * Main Game Logic State
+     */
+    class Game {
+        constructor() {
+            this.canvas = document.getElementById('gameCanvas');
+            this.ctx = this.canvas.getContext('2d');
+
+            // Game stats
+            this.hp = 100;
+            this.gold = 150;
+            this.wave = 1;
+            this.score = 0;
+            this.mathSolvedCount = 0;
+            this.streak = 0;
+
+            this.isPaused = false;
+            this.isGameOver = false;
+            this.isWaveActive = false;
+
+            // Selected tower for placement & inspection
+            this.selectedBuildType = 'archer';
+            this.selectedTower = null;
+
+            // Game Loop Arrays
+            this.towers = [];
+            this.enemies = [];
+            this.projectiles = [];
+            this.particles = [];
+            this.grid = [];
+
+            // Path waypoints for map
+            this.gridCols = 16;
+            this.gridRows = 10;
+            this.tileSize = 40;
+            this.pathWaypoints = [];
+            this.pathTiles = new Set();
+
+            // Math Lab state
+            this.currentMath = { q: '', answer: '', reward: 150 };
+
+            // Audio toggle state
+            this.audioEnabled = true;
+
+            this.initCanvasSize();
+            this.setupMapPath();
+            this.bindEvents();
+            this.generateMathQuestion();
+        }
+
+        initCanvasSize() {
+            const container = this.canvas.parentElement;
+            this.canvas.width = container.clientWidth;
+            this.canvas.height = container.clientHeight || 480;
+
+            this.tileSize = Math.min(
+                this.canvas.width / this.gridCols,
+                this.canvas.height / this.gridRows
+            );
+        }
+
+        setupMapPath() {
+            const gridPath = [
+                { x: 0, y: 2 },
+                { x: 4, y: 2 },
+                { x: 4, y: 7 },
+                { x: 9, y: 7 },
+                { x: 9, y: 3 },
+                { x: 13, y: 3 },
+                { x: 13, y: 8 },
+                { x: 15, y: 8 }
+            ];
+
+            this.pathWaypoints = gridPath.map(pt => ({
+                x: (pt.x + 0.5) * this.tileSize,
+                y: (pt.y + 0.5) * this.tileSize
+            }));
+
+            this.pathTiles.clear();
+            for (let i = 0; i < gridPath.length - 1; i++) {
+                const p1 = gridPath[i];
+                const p2 = gridPath[i + 1];
+
+                const minX = Math.min(p1.x, p2.x);
+                const maxX = Math.max(p1.x, p2.x);
+                const minY = Math.min(p1.y, p2.y);
+                const maxY = Math.max(p1.y, p2.y);
+
+                for (let x = minX; x <= maxX; x++) {
+                    for (let y = minY; y <= maxY; y++) {
+                        this.pathTiles.add(`${x},${y}`);
+                    }
+                }
+            }
+        }
+
+        bindEvents() {
+            window.addEventListener('resize', () => {
+                this.initCanvasSize();
+                this.setupMapPath();
+            });
+
+            this.canvas.addEventListener('click', (e) => {
+                const rect = this.canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                const gridX = Math.floor(clickX / this.tileSize);
+                const gridY = Math.floor(clickY / this.tileSize);
+
+                const clickedTower = this.towers.find(t => t.gridX === gridX && t.gridY === gridY);
+                if (clickedTower) {
+                    this.selectTower(clickedTower);
+                    return;
+                }
+
+                this.tryBuildTower(gridX, gridY);
+            });
+
+            document.querySelectorAll('.tower-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tower-btn').forEach(b => b.classList.remove('border-amber-400', 'bg-slate-700'));
+                    btn.classList.add('border-amber-400', 'bg-slate-700');
+                    this.selectedBuildType = btn.dataset.towerType;
+                });
+            });
+            const defaultTowerBtn = document.querySelector('[data-tower-type="archer"]');
+            if (defaultTowerBtn) defaultTowerBtn.classList.add('border-amber-400', 'bg-slate-700');
+
+            // Math Submission Handlers
+            document.getElementById('btn-submit-answer').addEventListener('click', () => this.checkMathAnswer());
+            document.getElementById('math-answer-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this.checkMathAnswer();
+            });
+
+            document.getElementById('btn-next-wave').addEventListener('click', () => this.startWave());
+
+            document.getElementById('btn-upgrade-tower').addEventListener('click', () => this.upgradeSelectedTower());
+            document.getElementById('btn-sell-tower').addEventListener('click', () => this.sellSelectedTower());
+            document.getElementById('btn-close-inspector').addEventListener('click', () => this.deselectTower());
+
+            document.getElementById('btn-audio').addEventListener('click', () => {
+                sound.init();
+                sound.muted = !sound.muted;
+                document.getElementById('btn-audio').innerHTML = sound.muted
+                    ? '<i class="fa-solid fa-volume-xmark text-lg text-rose-400"></i>'
+                    : '<i class="fa-solid fa-volume-high text-lg"></i>';
+            });
+
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                this.isPaused = !this.isPaused;
+                document.getElementById('btn-pause').innerHTML = this.isPaused
+                    ? '<i class="fa-solid fa-play text-lg text-emerald-400"></i>'
+                    : '<i class="fa-solid fa-pause text-lg"></i>';
+            });
+
+            document.getElementById('btn-modal-action').addEventListener('click', () => {
+                sound.init();
+                document.getElementById('modal-overlay').classList.add('hidden');
+                if (this.isGameOver) {
+                    this.resetGame();
+                }
+            });
+        }
+
+        resetGame() {
+            this.hp = 100;
+            this.gold = 150;
+            this.wave = 1;
+            this.score = 0;
+            this.mathSolvedCount = 0;
+            this.streak = 0;
+            this.isGameOver = false;
+            this.isWaveActive = false;
+            this.towers = [];
+            this.enemies = [];
+            this.projectiles = [];
+            this.particles = [];
+            this.deselectTower();
+            this.updateHUD();
+            this.generateMathQuestion();
+        }
+
+        tryBuildTower(gx, gy) {
+            if (gx < 0 || gx >= this.gridCols || gy < 0 || gy >= this.gridRows) return;
+
+            if (this.pathTiles.has(`${gx},${gy}`)) {
+                this.showFloatingText('Cannot build on path!', (gx + 0.5) * this.tileSize, (gy + 0.5) * this.tileSize, '#f43f5e');
+                return;
+            }
+
+            const blueprint = TOWER_TYPES[this.selectedBuildType];
+            if (this.gold < blueprint.cost) {
+                this.showFloatingText('Not Enough Gold!', (gx + 0.5) * this.tileSize, (gy + 0.5) * this.tileSize, '#f59e0b');
+                return;
+            }
+
+            this.gold -= blueprint.cost;
+            const newTower = {
+                id: Date.now(),
+                type: this.selectedBuildType,
+                gridX: gx,
+                gridY: gy,
+                x: (gx + 0.5) * this.tileSize,
+                y: (gy + 0.5) * this.tileSize,
+                level: 1,
+                range: blueprint.range,
+                damage: blueprint.damage,
+                fireRate: blueprint.fireRate,
+                lastShot: 0,
+                target: null
+            };
+
+            this.towers.push(newTower);
+            sound.playBuild();
+            this.updateHUD();
+            this.selectTower(newTower);
+        }
+
+        selectTower(tower) {
+            this.selectedTower = tower;
+            const blueprint = TOWER_TYPES[tower.type];
+            const inspector = document.getElementById('tower-inspector');
+            inspector.classList.remove('hidden');
+
+            document.getElementById('inspector-name').innerText = blueprint.name;
+            document.getElementById('inspector-level').innerText = `Lvl ${tower.level}`;
+            document.getElementById('inspector-stats').innerText = `Dmg: ${Math.round(tower.damage)} | Range: ${Math.round(tower.range)} | Fire Speed: ${tower.fireRate}s`;
+
+            const upgradeCost = Math.round(blueprint.cost * Math.pow(1.5, tower.level));
+            const sellValue = Math.round(blueprint.cost * 0.6 * tower.level);
+
+            document.getElementById('upgrade-cost').innerText = upgradeCost;
+            document.getElementById('sell-gold').innerText = sellValue;
+        }
+
+        deselectTower() {
+            this.selectedTower = null;
+            document.getElementById('tower-inspector').classList.add('hidden');
+        }
+
+        upgradeSelectedTower() {
+            if (!this.selectedTower) return;
+            const blueprint = TOWER_TYPES[this.selectedTower.type];
+            const cost = Math.round(blueprint.cost * Math.pow(1.5, this.selectedTower.level));
+
+            if (this.gold >= cost) {
+                this.gold -= cost;
+                this.selectedTower.level += 1;
+                this.selectedTower.damage *= 1.35;
+                this.selectedTower.range *= 1.1;
+                sound.playBuild();
+                this.updateHUD();
+                this.selectTower(this.selectedTower);
+            } else {
+                this.showFloatingText('Need Gold!', this.selectedTower.x, this.selectedTower.y, '#f59e0b');
+            }
+        }
+
+        sellSelectedTower() {
+            if (!this.selectedTower) return;
+            const blueprint = TOWER_TYPES[this.selectedTower.type];
+            const sellValue = Math.round(blueprint.cost * 0.6 * this.selectedTower.level);
+
+            this.gold += sellValue;
+            this.towers = this.towers.filter(t => t.id !== this.selectedTower.id);
+            sound.playBuild();
+            this.deselectTower();
+            this.updateHUD();
+        }
+
+        generateMathQuestion() {
+            const item = QUADRATIC_QUESTIONS[Math.floor(Math.random() * QUADRATIC_QUESTIONS.length)];
+            this.currentMath = { q: item.q, answer: item.ans, reward: 150 };
+
+            document.getElementById('math-instruction').innerText = `Rearrange ${item.q} in the form (x-h)^2+k`;
+            const input = document.getElementById('math-answer-input');
+            input.value = '';
+            input.focus();
+        }
+
+        checkMathAnswer() {
+            const input = document.getElementById('math-answer-input');
+            // Normalize user input by removing all whitespace for robust comparison
+            const userAns = input.value.replace(/\s+/g, '').toLowerCase();
+            const correctAns = this.currentMath.answer.replace(/\s+/g, '').toLowerCase();
+
+            if (!userAns) return;
+
+            const card = document.getElementById('question-card');
+
+            if (userAns === correctAns) {
+                this.streak++;
+                this.mathSolvedCount++;
+                const multiplier = Math.min(3.0, 1 + (this.streak - 1) * 0.2);
+                const earnedGold = Math.round(this.currentMath.reward * multiplier);
+
+                this.gold += earnedGold;
+                this.score += earnedGold * 2;
+                sound.playCorrect();
+
+                card.classList.add('pulse-correct');
+                setTimeout(() => card.classList.remove('pulse-correct'), 500);
+
+                this.showFloatingText(`+${earnedGold} Gold!`, this.canvas.width / 2, this.canvas.height / 2, '#fbbf24');
+                this.generateMathQuestion();
+            } else {
+                this.streak = 0;
+                sound.playWrong();
+                input.value = '';
+                this.showFloatingText('Incorrect!', this.canvas.width / 2, this.canvas.height / 2, '#f43f5e');
+            }
+
+            this.updateHUD();
+        }
+
+        startWave() {
+            if (this.isWaveActive) return;
+
+            this.isWaveActive = true;
+            document.getElementById('btn-next-wave').classList.add('opacity-50', 'pointer-events-none');
+
+            const enemyCount = 5 + this.wave * 3;
+            let spawned = 0;
+
+            const spawnInterval = setInterval(() => {
+                if (this.isGameOver) {
+                    clearInterval(spawnInterval);
+                    return;
+                }
+
+                this.spawnEnemy();
+                spawned++;
+
+                if (spawned >= enemyCount) {
+                    clearInterval(spawnInterval);
+                }
+            }, 1200 - Math.min(600, this.wave * 30));
+        }
+
+        spawnEnemy() {
+            const isBoss = this.wave % 5 === 0 && Math.random() < 0.25;
+            const types = ['goblin', 'orc', 'harpy'];
+            const selectedType = isBoss ? 'boss' : types[Math.floor(Math.random() * types.length)];
+
+            let hp = 40 + this.wave * 25;
+            let speed = 1.2 + Math.random() * 0.4;
+            let reward = 15;
+            let color = '#22c55e';
+            let radius = 12;
+
+            if (selectedType === 'orc') {
+                hp *= 1.8;
+                speed *= 0.7;
+                reward = 25;
+                color = '#ea580c';
+                radius = 15;
+            } else if (selectedType === 'harpy') {
+                hp *= 0.8;
+                speed *= 1.5;
+                reward = 20;
+                color = '#a855f7';
+                radius = 10;
+            } else if (selectedType === 'boss') {
+                hp *= 5.0;
+                speed *= 0.5;
+                reward = 100;
+                color = '#e11d48';
+                radius = 22;
+            }
+
+            this.enemies.push({
+                id: Date.now() + Math.random(),
+                type: selectedType,
+                x: this.pathWaypoints[0].x,
+                y: this.pathWaypoints[0].y,
+                pathIndex: 0,
+                hp: hp,
+                maxHp: hp,
+                speed: speed,
+                slowTimer: 0,
+                reward: reward,
+                color: color,
+                radius: radius
+            });
+        }
+
+        updateHUD() {
+            document.getElementById('stat-hp').innerText = Math.max(0, this.hp);
+            document.getElementById('stat-gold').innerText = this.gold;
+            document.getElementById('stat-wave').innerText = this.wave;
+            document.getElementById('stat-score').innerText = this.score;
+
+            document.getElementById('streak-counter').innerText = `${this.streak} Hits`;
+            const mult = Math.min(3.0, 1 + (this.streak - 1) * 0.2);
+            document.getElementById('streak-multiplier').innerText = `${mult.toFixed(1)}x`;
+        }
+
+        showFloatingText(text, x, y, color = '#fbbf24') {
+            const el = document.createElement('div');
+            el.className = 'absolute font-game text-lg font-bold pointer-events-none float-text z-30 drop-shadow';
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            el.style.color = color;
+            el.innerText = text;
+
+            const container = document.getElementById('floating-text-container');
+            container.appendChild(el);
+
+            setTimeout(() => el.remove(), 800);
+        }
+
+        triggerGameOver() {
+            this.isGameOver = true;
+            document.getElementById('modal-title').innerText = "CITADEL FALLEN!";
+            document.getElementById('modal-icon').className = "fa-solid fa-skull-crossbones text-rose-500";
+            document.getElementById('modal-desc').innerText = "The enemy forces breached your defenses. Solve more quadratics to reinforce your towers next time!";
+
+            document.getElementById('summary-waves').innerText = this.wave;
+            document.getElementById('summary-score').innerText = this.score;
+            document.getElementById('summary-math').innerText = this.mathSolvedCount;
+            document.getElementById('modal-stats-summary').classList.remove('hidden');
+
+            document.getElementById('btn-modal-action').innerText = "TRY AGAIN";
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        }
+
+        update(dt) {
+            if (this.isPaused || this.isGameOver) return;
+
+            for (let i = this.enemies.length - 1; i >= 0; i--) {
+                const e = this.enemies[i];
+
+                let currentSpeed = e.speed;
+                if (e.slowTimer > 0) {
+                    e.slowTimer -= dt;
+                    currentSpeed *= 0.5;
+                }
+
+                const targetWay = this.pathWaypoints[e.pathIndex + 1];
+                if (targetWay) {
+                    const dx = targetWay.x - e.x;
+                    const dy = targetWay.y - e.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < currentSpeed) {
+                        e.x = targetWay.x;
+                        e.y = targetWay.y;
+                        e.pathIndex++;
+
+                        if (e.pathIndex >= this.pathWaypoints.length - 1) {
+                            this.hp -= (e.type === 'boss' ? 25 : 10);
+                            sound.playHit();
+                            this.enemies.splice(i, 1);
+                            this.updateHUD();
+
+                            if (this.hp <= 0) {
+                                this.triggerGameOver();
+                            }
+                            continue;
+                        }
+                    } else {
+                        e.x += (dx / dist) * currentSpeed;
+                        e.y += (dy / dist) * currentSpeed;
+                    }
+                }
+            }
+
+            if (this.isWaveActive && this.enemies.length === 0) {
+                this.isWaveActive = false;
+                this.wave++;
+                this.gold += 50 + this.wave * 10;
+                this.updateHUD();
+                document.getElementById('btn-next-wave').classList.remove('opacity-50', 'pointer-events-none');
+                this.showFloatingText('Wave Cleared! +Bonus Gold', this.canvas.width / 2, this.canvas.height / 2, '#34d399');
+            }
+
+            const now = performance.now() / 1000;
+            this.towers.forEach(t => {
+                t.target = null;
+                let maxPathDist = -1;
+
+                this.enemies.forEach(e => {
+                    const dist = Math.hypot(e.x - t.x, e.y - t.y);
+                    if (dist <= t.range) {
+                        const pathProgress = e.pathIndex * 1000 + dist;
+                        if (pathProgress > maxPathDist) {
+                            maxPathDist = pathProgress;
+                            t.target = e;
+                        }
+                    }
+                });
+
+                if (t.target) {
+                    if (t.type === 'laser') {
+                        t.target.hp -= t.damage;
+                        if (t.target.hp <= 0) {
+                            this.onEnemyDefeated(t.target);
+                        }
+                    } else if (now - t.lastShot >= t.fireRate) {
+                        t.lastShot = now;
+                        sound.playShoot();
+
+                        this.projectiles.push({
+                            x: t.x,
+                            y: t.y,
+                            target: t.target,
+                            speed: 8,
+                            damage: t.damage,
+                            type: t.type
+                        });
+                    }
+                }
+            });
+
+            for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                const p = this.projectiles[i];
+
+                if (!this.enemies.includes(p.target)) {
+                    this.projectiles.splice(i, 1);
+                    continue;
+                }
+
+                const dx = p.target.x - p.x;
+                const dy = p.target.y - p.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < p.speed) {
+                    sound.playHit();
+
+                    if (p.type === 'cannon') {
+                        const splashRadius = TOWER_TYPES.cannon.splashRadius;
+                        this.enemies.forEach(e => {
+                            if (Math.hypot(e.x - p.target.x, e.y - p.target.y) <= splashRadius) {
+                                e.hp -= p.damage;
+                                if (e.hp <= 0) this.onEnemyDefeated(e);
+                            }
+                        });
+                    } else if (p.type === 'ice') {
+                        p.target.hp -= p.damage;
+                        p.target.slowTimer = TOWER_TYPES.ice.slowDuration;
+                        if (p.target.hp <= 0) this.onEnemyDefeated(p.target);
+                    } else {
+                        p.target.hp -= p.damage;
+                        if (p.target.hp <= 0) this.onEnemyDefeated(p.target);
+                    }
+
+                    this.projectiles.splice(i, 1);
+                } else {
+                    p.x += (dx / dist) * p.speed;
+                    p.y += (dy / dist) * p.speed;
+                }
+            }
+        }
+
+        onEnemyDefeated(enemy) {
+            const idx = this.enemies.indexOf(enemy);
+            if (idx !== -1) {
+                this.gold += enemy.reward;
+                this.score += enemy.reward * 5;
+                this.showFloatingText(`+${enemy.reward}G`, enemy.x, enemy.y, '#f59e0b');
+                this.enemies.splice(idx, 1);
+                this.updateHUD();
+            }
+        }
+
+        render() {
+            this.ctx.fillStyle = '#0f172a';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            this.ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
+            this.ctx.lineWidth = 1;
+            for (let x = 0; x <= this.canvas.width; x += this.tileSize) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, 0);
+                this.ctx.lineTo(x, this.canvas.height);
+                this.ctx.stroke();
+            }
+            for (let y = 0; y <= this.canvas.height; y += this.tileSize) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(this.canvas.width, y);
+                this.ctx.stroke();
+            }
+
+            if (this.pathWaypoints.length > 1) {
+                this.ctx.strokeStyle = '#334155';
+                this.ctx.lineWidth = this.tileSize * 0.8;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.pathWaypoints[0].x, this.pathWaypoints[0].y);
+                for (let i = 1; i < this.pathWaypoints.length; i++) {
+                    this.ctx.lineTo(this.pathWaypoints[i].x, this.pathWaypoints[i].y);
+                }
+                this.ctx.stroke();
+            }
+
+            if (this.selectedTower) {
+                this.ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+                this.ctx.strokeStyle = '#f59e0b';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.beginPath();
+                this.ctx.arc(this.selectedTower.x, this.selectedTower.y, this.selectedTower.range, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.stroke();
+            }
+
+            this.towers.forEach(t => {
+                const blueprint = TOWER_TYPES[t.type];
+
+                this.ctx.fillStyle = '#1e293b';
+                this.ctx.beginPath();
+                this.ctx.arc(t.x, t.y, this.tileSize * 0.38, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.strokeStyle = blueprint.color;
+                this.ctx.lineWidth = 3;
+                this.ctx.stroke();
+
+                this.ctx.fillStyle = blueprint.color;
+                this.ctx.beginPath();
+                this.ctx.arc(t.x, t.y, this.tileSize * 0.18, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                if (t.type === 'laser' && t.target) {
+                    this.ctx.strokeStyle = '#c084fc';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(t.x, t.y);
+                    this.ctx.lineTo(t.target.x, t.target.y);
+                    this.ctx.stroke();
+                }
+            });
+
+            this.enemies.forEach(e => {
+                this.ctx.fillStyle = e.color;
+                this.ctx.beginPath();
+                this.ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                if (e.slowTimer > 0) {
+                    this.ctx.strokeStyle = '#38bdf8';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.stroke();
+                }
+
+                const barW = e.radius * 2;
+                const barH = 4;
+                const hpPercent = Math.max(0, e.hp / e.maxHp);
+
+                this.ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+                this.ctx.fillRect(e.x - barW / 2, e.y - e.radius - 8, barW, barH);
+
+                this.ctx.fillStyle = hpPercent > 0.5 ? '#22c55e' : '#f43f5e';
+                this.ctx.fillRect(e.x - barW / 2, e.y - e.radius - 8, barW * hpPercent, barH);
+            });
+
+            this.projectiles.forEach(p => {
+                this.ctx.fillStyle = TOWER_TYPES[p.type].color;
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
+        }
+
+        loop() {
+            const dt = 0.016;
+            this.update(dt);
+            this.render();
+            requestAnimationFrame(() => this.loop());
+        }
+    }
+
+    window.onload = () => {
+        const game = new Game();
+        game.loop();
+    };
+</script>
